@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Soal Ujian dari Khimi</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #e3f2fd;
+      margin: 0;
+    }
+    .hidden { display: none; }
+    #login-page {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(to right, #2c5364, #203a43, #0f2027);
+      color: white;
+    }
+    .login-box {
+      background: #1a1a1a;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px #000;
+      width: 90%;
+      max-width: 400px;
+    }
+    .login-box h2 { text-align: center; }
+    .login-box input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border: none;
+      font-size: 16px;
+    }
+    .login-box button {
+      width: 100%;
+      padding: 10px;
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #exam-page {
+      display: none;
+      padding: 20px;
+    }
+    .header {
+      background-color: #0d47a1;
+      color: white;
+      padding: 10px;
+      text-align: center;
+      position: relative;
+    }
+    .timer {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #f44336;
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
+    .question-box {
+      margin-top: 20px;
+    }
+    .options label {
+      display: block;
+      margin-bottom: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .navigation {
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .submit-btn {
+      margin-top: 30px;
+      width: 100%;
+      padding: 10px;
+      background: #0d47a1;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body oncontextmenu="return false" onkeydown="return blockKey(event)">
+
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="login-box">
+    <h2>Login Soal Ujian dari Khimi</h2>
+    <input type="text" placeholder="NIS / NISN" id="nis" />
+    <input type="password" placeholder="Password" id="password" />
+    <button onclick="startExam()">Masuk</button>
+  </div>
+</div>
+
+<!-- UJIAN -->
+<div id="exam-page">
+  <div class="header">
+    <h2>Soal Ujian dari Khimi</h2>
+    <div class="timer" id="timer">Sisa waktu: 10:00</div>
+  </div>
+  <div class="question-box">
+    <h3 id="question-number">Soal No. 1</h3>
+    <p id="question-text">Soal akan tampil di sini</p>
+    <div class="options" id="options-box"></div>
+
+    <div class="navigation">
+      <button onclick="prevQuestion()">Sebelumnya</button>
+      <button onclick="nextQuestion()">Berikutnya</button>
+    </div>
+
+    <button class="submit-btn hidden" id="submitBtn" onclick="submitExam()">Selesai Ujian</button>
+  </div>
+</div>
+
+<script>
+  const questions = generateQuestions();
+  let current = 0;
+  let answers = new Array(questions.length).fill(null);
+  let duration = 10 * 60;
+  let interval;
+
+  function generateQuestions() {
+    const soal = [];
+    while (soal.length < 20) {
+      const a = Math.floor(Math.random() * 21) + 10;
+      const b = Math.floor(Math.random() * 21) + 10;
+      const correct = a * b;
+      const choices = [correct];
+      while (choices.length < 4) {
+        let wrong = correct + Math.floor(Math.random() * 21 - 10);
+        if (wrong !== correct && !choices.includes(wrong) && wrong > 0) {
+          choices.push(wrong);
+        }
+      }
+      for (let i = choices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [choices[i], choices[j]] = [choices[j], choices[i]];
+      }
+      soal.push({
+        text: `Berapakah hasil dari ${a} × ${b}?`,
+        choices: choices,
+        correct: choices.indexOf(correct),
+      });
+    }
+    return soal;
+  }
+
+  function startExam() {
+    const nis = document.getElementById("nis").value;
+    const pw = document.getElementById("password").value;
+    if (!nis || !pw) {
+      alert("Silakan isi NIS dan Password!");
+      return;
+    }
+    document.getElementById("login-page").style.display = "none";
+    document.getElementById("exam-page").style.display = "block";
+    startTimer();
+    showQuestion();
+    enableFullscreen();
+  }
+
+  function showQuestion() {
+    const q = questions[current];
+    document.getElementById("question-number").innerText = `Soal No. ${current + 1}`;
+    document.getElementById("question-text").innerText = q.text;
+    const box = document.getElementById("options-box");
+    box.innerHTML = "";
+    q.choices.forEach((opt, idx) => {
+      const checked = answers[current] === idx ? "checked" : "";
+      box.innerHTML += `
+        <label>
+          <input type="radio" name="q" value="${idx}" ${checked} onchange="saveAnswer(${idx})" />
+          ${String.fromCharCode(65 + idx)}. ${opt}
+        </label>
+      `;
+    });
+    checkAllAnswered();
+  }
+
+  function saveAnswer(idx) {
+    answers[current] = idx;
+    checkAllAnswered();
+  }
+
+  function nextQuestion() {
+    if (current < questions.length - 1) {
+      current++;
+      showQuestion();
+    }
+  }
+
+  function prevQuestion() {
+    if (current > 0) {
+      current--;
+      showQuestion();
+    }
+  }
+
+  function checkAllAnswered() {
+    const btn = document.getElementById("submitBtn");
+    if (answers.every((a) => a !== null)) {
+      btn.classList.remove("hidden");
+    } else {
+      btn.classList.add("hidden");
+    }
+  }
+
+  function submitExam() {
+    clearInterval(interval);
+    let benar = 0;
+    answers.forEach((val, i) => {
+      if (val === questions[i].correct) benar++;
+    });
+    alert(`Ujian selesai!\nBenar: ${benar} dari ${questions.length}\nNilai: ${benar * 5}`);
+    location.reload();
+  }
+
+  function startTimer() {
+    const timerEl = document.getElementById("timer");
+    interval = setInterval(() => {
+      const m = Math.floor(duration / 60);
+      const s = duration % 60;
+      timerEl.textContent = `Sisa waktu: ${m}:${s < 10 ? "0" + s : s}`;
+      if (--duration < 0) {
+        clearInterval(interval);
+        alert("Waktu habis!");
+        submitExam();
+      }
+    }, 1000);
+  }
+
+  function blockKey(e) {
+    if (["F12"].includes(e.key) || e.ctrlKey || e.metaKey) {
+      alert("Akses dibatasi!");
+      e.preventDefault();
+      return false;
+    }
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      alert("Anda meninggalkan tab! Ujian bisa dibatalkan.");
+    }
+  });
+
+  function enableFullscreen() {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+  }
+</script>
+</body>
+</html>
